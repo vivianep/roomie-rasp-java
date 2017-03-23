@@ -1,0 +1,6 @@
+without debug 
+javac -cp .:kaa-java-ep-sdk-9wlesS3m1fH7uShyttGldJglU_E.jar -classpath '.:classes:*:classes:/opt/pi4j/lib/*' -d . rfid/*.java  Booking.java ConnectionFactory.java Room.java User.java Main.java
+ReadRfid.java
+running
+
+sudo java -classpath '.:classes:*:classes:/opt/pi4j/lib/*' -cp .:kaa-java-ep-sdk-EtHcMUrb0TZKaChch6kmvX82XOU.jar   Main
