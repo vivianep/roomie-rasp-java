@@ -87,27 +87,54 @@ public class Main {
 		String userOption = user_input.next();
 		switch(userOption){
 			case "1":
-			System.out.println("Okay. Lets register a new user then!                          "); 
-			System.out.println("Insert the user name:                                         ");  
-			String userName = user_input.next();
-			System.out.println("Got that ;) Can you please inform me the email now:           ");  
-			String userEmail = user_input.next();
-			//System.out.println("Now can you inform your new brand password:           ");  
-			boolean pwdMatch = false;
-			while(!pwdMatch){
-				password = new String(console.readPassword("Now can you inform your new brand password:\n"));
-				String confirmation = new String(console.readPassword("Can you type again, so I can confirm?\n"));
-				if(password.equals(confirmation)){
-					pwdMatch=true;
-					break;
+				System.out.println("Okay. Lets register a new user then!                          "); 
+				System.out.println("Insert the user name:                                         ");  
+				String userName = user_input.next();
+				System.out.println("Got that ;) Can you please inform me the email now:           ");  
+				String userEmail = user_input.next();
+				//System.out.println("Now can you inform your new brand password:           ");  
+				boolean pwdMatch = false;
+				while(!pwdMatch){
+					password = new String(console.readPassword("Now can you inform your new brand password:\n"));
+					String confirmation = new String(console.readPassword("Can you type again, so I can confirm?\n"));
+					if(password.equals(confirmation)){
+						pwdMatch=true;
+						break;
+					}
+					System.out.println("Both passwords don't match. Let's try again!");
 				}
-				System.out.println("Both passwords don't match. Let's try again!");
-			}
-			u.setUserName(userName);
-			u.setEmail(userEmail);
-			u.setHashedPassword(Util.SHA256(password));
-			//u.setRfidCode(tag);
-			 
+				u.setUserName(userName);
+				u.setEmail(userEmail);
+				u.setHashedPassword(Util.SHA256(password));
+				u.setRfidCode(" ");
+				KaaClientImplementation kaaClientImpl = new KaaClientImplementation();
+				kaaClientImpl.initKaa();	
+				//u.setRfidCode(tag);
+			 	u.setRfidCode("");
+			 	kaaClientImpl.sendCreateUserEvent(u);
+				ConfirmationECF confirmationECF = kaaClientImpl.eventFamilyFactory.getConfirmationECF();	
+				boolean confirmationFlag = false;
+				final CountDownLatch confirmationLatch = new CountDownLatch(1);
+				System.out.println("Confirmation Event Listener added");
+				confirmationECF.addListener( new ConfirmationECF.Listener(){
+					
+					@Override
+					public void onEvent(ConfirmationEvent event, String source)  {
+						System.out.println("Confirmation Event Received from RoomieWeb");
+						if(u.getEmail() == event.getEmail()){
+							if(event.getIsRegistered())
+								System.out.println("Chill out your user was registered");
+							else
+								System.out.println("Oh ohm I think we got a problem with you registration." + event.getStatus());
+							confirmationLatch.countDown();
+						}
+						//confirmationFlag = true;
+				}
+				});
+				confirmationLatch.await();
+				break;
+			default:
+				
 			 /*while(true){
 						System.out.println("Reading Tag");
 						System.out.println(rfidReader.readTag());
@@ -115,29 +142,8 @@ public class Main {
 					}
 				*/	
 		}
-			KaaClientImplementation kaaClientImpl = new KaaClientImplementation();
-			kaaClientImpl.initKaa();	
-			kaaClientImpl.sendCreateUserEvent(u);
-			ConfirmationECF confirmationECF = kaaClientImpl.eventFamilyFactory.getConfirmationECF();	
-			boolean confirmationFlag = false;
-			final CountDownLatch confirmationLatch = new CountDownLatch(1);
-			confirmationECF.addListener( new ConfirmationECF.Listener(){
-					
-				@Override
-				public void onEvent(ConfirmationEvent event, String source)  {
-					if(u.getEmail() == event.getEmail()){
-						if(event.getIsRegistered())
-							System.out.println("Chill out your user was registered");
-						else
-							System.out.println("Oh ohm I think we got a problem with you registration." + event.getStatus());
-					}
-					//confirmationFlag = true;
-			}
-			});
+			
 		
-			while(!confirmationFlag){
-		
-			}
 		
        }
 		       

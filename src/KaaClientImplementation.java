@@ -130,6 +130,16 @@ import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 import com.pi4j.io.gpio.event.PinEventType;
 import java.io.Console;
 import java.lang.System;
+import java.util.Calendar;
+import java.security.GeneralSecurityException;
+import java.util.Properties;
+import javax.mail.Message;
+import javax.mail.MessagingException;
+import javax.mail.PasswordAuthentication;
+import javax.mail.Session;
+import javax.mail.Transport;
+import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeMessage;
 
 public class KaaClientImplementation {
 
@@ -174,7 +184,7 @@ public class KaaClientImplementation {
 			
 				
 				final CountDownLatch attachLatch = new CountDownLatch(1);
-       		  	kaaClient.attachUser("UserVerifier", "67768675307474178405", new UserAttachCallback() {
+       		  	kaaClient.attachUser("trustful", "58202754748891224481", new UserAttachCallback() {
                 
                 @Override
                 public void onAttachResult(UserAttachResponse response) {
@@ -182,18 +192,21 @@ public class KaaClientImplementation {
                     if (response.getResult() == SyncResponseResultType.SUCCESS) {
                         LOG.info("Current endpoint have been successfully attached to user [ID={}]!");
 						System.out.println("Current endpoint have been successfully attached to user [ID={}]!");
+						attachLatch.countDown();
       
                     } else {
                         LOG.error("Attaching current endpoint to user [ID={}] FAILED.");
                         LOG.error("Attach response: {}", response);
                         LOG.error("Events exchange will be NOT POSSIBLE.");
                     }
-                    attachLatch.countDown();
+                    
                             }
             });
-            
+            		attachLatch.await();
+            		
 					eventFamilyFactory = kaaClient.getEventFamilyFactory();
 					StartMeetECF startMeetECF = eventFamilyFactory.getStartMeetECF();	
+					System.out.println("Added Listener for StartMeetECF");
 					startMeetECF.addListener(new StartMeetECF.Listener() {
 						@Override
 						public void onEvent(StartMeetEvent event, String source)  {
@@ -233,15 +246,10 @@ public class KaaClientImplementation {
 				//source = eventListeners.get(2);
 				createUserLatch.countDown();
 			}
-
 			@Override
 			public void onRequestFailed() {
 				System.out.println("RequestFailed");
 			}
-			
-			
-		
-			
 		});
 		
 		createUserLatch.await();
@@ -317,12 +325,13 @@ public class KaaClientImplementation {
 				Date initialDateConverted = Util.convertDateTimetoDate(event.getMeeting().getStartTime());
 				Date endDateConverted = Util.convertDateTimetoDate(event.getMeeting().getEndTime());
 				long difference = endDateConverted.getTime() - initialDateConverted.getTime();
-				long readingTimeRFID = difference/5;
-				long maxInactivityTime = difference/10;
+				long readingTimeRFID = (7*difference)/10;
+				long maxInactivityTime =60*5*1000;
 				boolean rfidTagMatched = false ;
 				boolean timeIsOver = false;
 				String readTag;		
 				long initialTimeInMs = new Date().getTime();
+				boolean emailSent = false;
 				
 			    while(new Date().getTime()-initialTimeInMs<=readingTimeRFID){
 					System.out.println("Reading Tag");
@@ -342,15 +351,14 @@ public class KaaClientImplementation {
 					System.out.println("Reservation found, you can come in now");
 					long startTimeMotion = new Date().getTime();
 					System.out.println(new Date().getTime() - startTimeMotion );
+					System.out.println("Reservation Started");
 					while( new Date().getTime() - startTimeMotion <= maxInactivityTime ){
-						System.out.println("Sensing");
 					
 						if(new Date().getTime() -initialTimeInMs >=difference){
 							timeIsOver =true;
 							break;
 						}
 						if(pirMotionsensor.getState().isHigh()){
-								System.out.println("Someone was found");
 								startTimeMotion =new Date().getTime();
 		 				
 						}
@@ -375,8 +383,80 @@ public class KaaClientImplementation {
 					
 			}
 			}
+	
+	public static Date convertStringToDate( String time) {
+       
+       
+        Calendar calendar = Calendar.getInstance();
+       
+        int year = Integer.parseInt(time.substring(0,4));
+        int month = Integer.parseInt(time.substring(5, 7))-1;
+        int date = Integer.parseInt(time.substring(8,10));
+        int hour =Integer.parseInt(time.substring(11,13));
+        int minutes =Integer.parseInt(time.substring(14,16));
+        calendar.set(year, month, date,hour, minutes,0);
+       
+        return calendar.getTime();
+ 
+       
+       
+       
+    }
+   
+	
+	public void sendEmail(User user, String startTime , String endTime)throws InterruptedException{
+		
+		final String username = "roomiesender@gmail.com";
+		final String password = "Easy1234";
+
+		Properties props = new Properties();
+		props.put("mail.smtp.auth", "true");
+		props.put("mail.smtp.starttls.enable", "true");
+		props.put("mail.smtp.host", "smtp.gmail.com");
+		props.put("mail.smtp.port", "587");
+
+		Session session = Session.getInstance(props,
+		  new javax.mail.Authenticator() {
+			protected PasswordAuthentication getPasswordAuthentication() {
+				return new PasswordAuthentication(username, password);
+			}
+		  });
+
+		try {
+
+			Message message = new MimeMessage(session);
+			message.setFrom(new InternetAddress("roomiesender@gmail.com"));
+			message.setRecipients(Message.RecipientType.TO,
+				InternetAddress.parse(user.getEmail()));
+			message.setSubject("Reservation to be canceled");
+			message.setText("Dear "+ user.getUserName() + ", your reservation on the roomie system will be canceled if you do"+
+			"not show up in  "+(getMinutes(startTime,endTime) *0.1)+ " minutes");
+			Transport.send(message);
+
+
+
+		} catch (MessagingException e) {
+			throw new RuntimeException(e);
+		}
+		
+	}
+	
+	public float getMinutes(String startTime, String endTime){
+
+       return ((convertStringToDate(startTime).getTime()-convertStringToDate(endTime).getTime())/60000);
+                   	
+	}
+	
+	
+	
+	
+	
+		
+		
+	
 			
 	
 	}
+	
 
 
