@@ -255,6 +255,8 @@ public class KaaClientImplementation {
 		createUserLatch.await();
 		CreateUserEvent event = new CreateUserEvent();
 		event.setUser(u);		
+		event.setUser(u);		
+		createUserECF.sendEventToAll(event);
 		createUserECF.sendEventToAll(event);
 		System.out.println("Event Sent");	     			
        
@@ -306,104 +308,14 @@ public class KaaClientImplementation {
 
 }
 
-/* 
-	Implements the behaviour of a new meeting on Raspberry 
-	On the beginning Raspberry is on rfid read mode 
-	after a rfid card is identified, the system goes to detect presence mode
-	if the time is longer then defined on business rules of inactivity an interrupt 
-	meeting event is sent
+	public void closeKaaConnection(){
+			
+			kaaClient.stop();
+			System.out.println("Kaa Client stopped");
+			Util.sleepForSeconds(5);
+	}
 
-	@param e StartMeetingEvent represents the meeting to be started
-*/
 
-	public void startMeeting(StartMeetEvent event )throws InterruptedException{
-	
-		
-		try{
-				//redLed.low();
-				yellowLed.toggle();
-				Date initialDateConverted = Util.convertDateTimetoDate(event.getMeeting().getStartTime());
-				Date endDateConverted = Util.convertDateTimetoDate(event.getMeeting().getEndTime());
-				long difference = endDateConverted.getTime() - initialDateConverted.getTime();
-				long readingTimeRFID = (7*difference)/10;
-				long maxInactivityTime =60*5*1000;
-				boolean rfidTagMatched = false ;
-				boolean timeIsOver = false;
-				String readTag;		
-				long initialTimeInMs = new Date().getTime();
-				boolean emailSent = false;
-				
-			    while(new Date().getTime()-initialTimeInMs<=readingTimeRFID){
-					System.out.println("Reading Tag");
-					readTag =readRfid.readTag();
-					//if(SHA256(readTag).equals(event.getRfidCode())){
-					if(true){
-						rfidTagMatched = true;
-						break;
-					}
-					else{
-						System.out.println("Tag not recognized");
-					}
-				}
-				if(rfidTagMatched){
-					yellowLed.low();
-					greenLed.toggle();
-					System.out.println("Reservation found, you can come in now");
-					long startTimeMotion = new Date().getTime();
-					System.out.println(new Date().getTime() - startTimeMotion );
-					System.out.println("Reservation Started");
-					while( new Date().getTime() - startTimeMotion <= maxInactivityTime ){
-					
-						if(new Date().getTime() -initialTimeInMs >=difference){
-							timeIsOver =true;
-							break;
-						}
-						if(pirMotionsensor.getState().isHigh()){
-								startTimeMotion =new Date().getTime();
-		 				
-						}
-					}
-					if(	!timeIsOver){
-							System.out.println("Reservation canceled by Inactivity");
-							sendInterruptEvent(interruptReasonEnum.Inactivity, event.getMeeting().getId());
-					}else{
-							System.out.println("End of Reservation");
-										
-					}
-				}else{
-					System.out.println("Reservation canceled");
-					sendInterruptEvent(interruptReasonEnum.RFIDTagNotFound, event.getMeeting().getId());
-				}
-				
-        	
-			greenLed.low();
-			//redLed.toggle();
-					
-			}catch(ParseException e){
-					
-			}
-			}
-	
-	public static Date convertStringToDate( String time) {
-       
-       
-        Calendar calendar = Calendar.getInstance();
-       
-        int year = Integer.parseInt(time.substring(0,4));
-        int month = Integer.parseInt(time.substring(5, 7))-1;
-        int date = Integer.parseInt(time.substring(8,10));
-        int hour =Integer.parseInt(time.substring(11,13));
-        int minutes =Integer.parseInt(time.substring(14,16));
-        calendar.set(year, month, date,hour, minutes,0);
-       
-        return calendar.getTime();
- 
-       
-       
-       
-    }
-   
-	
 	public void sendEmail(User user, String startTime , String endTime)throws InterruptedException{
 		
 		final String username = "roomiesender@gmail.com";
@@ -441,9 +353,132 @@ public class KaaClientImplementation {
 		
 	}
 	
+
+/* 
+	Implements the behaviour of a new meeting on Raspberry 
+	On the beginning Raspberry is on rfid read mode 
+	after a rfid card is identified, the system goes to detect presence mode
+	if the time is longer then defined on business rules of inactivity an interrupt 
+	meeting event is sent
+
+	@param e StartMeetingEvent represents the meeting to be started
+*/
+
+	public void startMeeting(StartMeetEvent event )throws InterruptedException{
+	
+		
+		try{
+				//redLed.low();
+				yellowLed.toggle();
+				Date initialDateConverted = Util.convertDateTimetoDate(event.getMeeting().getStartTime());
+				Date endDateConverted = Util.convertDateTimetoDate(event.getMeeting().getEndTime());
+				long difference = endDateConverted.getTime() - initialDateConverted.getTime();
+				long readingTimeRFID = (3*difference)/10;
+				long maxInactivityTime =60*5*1000;
+				boolean rfidTagMatched = false ;
+				boolean timeIsOver = false;
+				String readTag;		
+				long initialTimeInMs = new Date().getTime();
+				boolean emailSent = false;
+			  	final String username = "roomiesender@gmail.com";
+				final String password = "Easy1234";
+
+			  	List<User> users = event.getMeeting().getUsers();
+			  	User owner = new User();
+			  	for(int i =0; i< users.size();i++){
+			  		if(users.get(i).getHashedPassword().equals("true")){
+			  			owner = users.get(i);
+			  			break;
+			  		}
+			  	}
+			    while(((new Date().getTime()-initialTimeInMs)<=readingTimeRFID)&&!rfidTagMatched){
+					System.out.println("Reading Tag");
+					//readTag =readRfid.readTag();
+					//if(SHA256(readTag).equals(event.getRfidCode())){
+					if(((new Date().getTime()-initialTimeInMs)>=(difference/5))&&emailSent==false){
+						if(!emailSent){
+							System.out.println("Send Email");
+							emailSent=true;
+							sendEmail(owner,event.getMeeting().getStartTime(),event.getMeeting().getEndTime() );
+							Util.sleepForSeconds(1);
+						}
+					}
+					
+					
+					/*
+					if(new Date().getTime()-initialTimeInMs>(difference/4)){
+						rfidTagMatched = true;
+						break;
+					}
+					*/
+					else{
+						System.out.println("Tag not recognized");
+					}
+				}
+				System.out.println("Get out loop");
+				
+				if(rfidTagMatched){
+					yellowLed.low();
+					greenLed.toggle();
+					System.out.println("Reservation found, you can come in now");
+					long startTimeMotion = new Date().getTime();
+					System.out.println(new Date().getTime() - startTimeMotion );
+					System.out.println("Reservation Started");
+					while( new Date().getTime() - startTimeMotion <= maxInactivityTime ){
+					
+						if(new Date().getTime() -initialTimeInMs >=difference){
+							timeIsOver =true;
+							break;
+						}
+						if(pirMotionsensor.getState().isHigh()){
+								startTimeMotion =new Date().getTime();
+		 				
+						}
+					}
+					if(	!timeIsOver){
+							System.out.println("Reservation canceled by Inactivity");
+							sendInterruptEvent(interruptReasonEnum.Inactivity, event.getMeeting().getId());
+					}else{
+							System.out.println("End of Reservation");
+										
+					}
+				}else{
+					System.out.println("Reservation canceled");
+					sendInterruptEvent(interruptReasonEnum.RFIDTagNotFound, event.getMeeting().getId());
+				}
+				
+        	
+			greenLed.low();
+			//redLed.toggle();
+					
+			}catch(ParseException e){
+					
+			}
+		}
+	
+	public static Date convertStringToDate( String time) {
+       
+       
+        Calendar calendar = Calendar.getInstance();
+       
+        int year = Integer.parseInt(time.substring(0,4));
+        int month = Integer.parseInt(time.substring(5, 7))-1;
+        int date = Integer.parseInt(time.substring(8,10));
+        int hour =Integer.parseInt(time.substring(11,13));
+        int minutes =Integer.parseInt(time.substring(14,16));
+        calendar.set(year, month, date,hour, minutes,0);
+       
+        return calendar.getTime();
+ 
+       
+       
+       
+    }
+   
+	
 	public float getMinutes(String startTime, String endTime){
 
-       return ((convertStringToDate(startTime).getTime()-convertStringToDate(endTime).getTime())/60000);
+       return ((convertStringToDate(endTime).getTime()-convertStringToDate(startTime).getTime())/60000);
                    	
 	}
 	

@@ -73,78 +73,85 @@ public class Main {
 		User u = new User();
 		String password = "";
 		CountDownLatch startupLatch = new CountDownLatch(1);
-		//kaaClient = Kaa.newClient( desktopKaaPlatformContext, new SimpleKaaClientStateListener() {
-		System.out.println("==============================================================");  //42 characters-- starting 25 til 87
-		System.out.println("=============================================================="); 
-		System.out.println("=                 Welcome to Roomie Raspberry                =");  
-		System.out.println("=============================================================="); 
-		System.out.println("Choose what do you want do next                               ");  
-		System.out.println("1 - Register new user:                                        ");  
-		System.out.println("2 - Start Kaa                                                 ");  
-		 System.out.println("=============================================================="); 
-		System.out.println("Now Type your choice:"); 
-		Scanner user_input = new Scanner(System.in);
-		String userOption = user_input.next();
-		switch(userOption){
-			case "1":
-				System.out.println("Okay. Lets register a new user then!                          "); 
-				System.out.println("Insert the user name:                                         ");  
-				String userName = user_input.next();
-				System.out.println("Got that ;) Can you please inform me the email now:           ");  
-				String userEmail = user_input.next();
-				//System.out.println("Now can you inform your new brand password:           ");  
-				boolean pwdMatch = false;
-				while(!pwdMatch){
-					password = new String(console.readPassword("Now can you inform your new brand password:\n"));
-					String confirmation = new String(console.readPassword("Can you type again, so I can confirm?\n"));
-					if(password.equals(confirmation)){
-						pwdMatch=true;
-						break;
-					}
-					System.out.println("Both passwords don't match. Let's try again!");
-				}
-				u.setUserName(userName);
-				u.setEmail(userEmail);
-				u.setHashedPassword(Util.SHA256(password));
-				u.setRfidCode(" ");
-				KaaClientImplementation kaaClientImpl = new KaaClientImplementation();
-				kaaClientImpl.initKaa();	
-				//u.setRfidCode(tag);
-			 	u.setRfidCode("");
-			 	kaaClientImpl.sendCreateUserEvent(u);
-				ConfirmationECF confirmationECF = kaaClientImpl.eventFamilyFactory.getConfirmationECF();	
-				boolean confirmationFlag = false;
-				final CountDownLatch confirmationLatch = new CountDownLatch(1);
-				System.out.println("Confirmation Event Listener added");
-				confirmationECF.addListener( new ConfirmationECF.Listener(){
-					
-					@Override
-					public void onEvent(ConfirmationEvent event, String source)  {
-						System.out.println("Confirmation Event Received from RoomieWeb");
-						if(u.getEmail() == event.getEmail()){
-							if(event.getIsRegistered())
-								System.out.println("Chill out your user was registered");
-							else
-								System.out.println("Oh ohm I think we got a problem with you registration." + event.getStatus());
-							confirmationLatch.countDown();
+		KaaClientImplementation kaaClientImpl = new KaaClientImplementation();
+		while(true){
+				System.out.println("==============================================================");  //42 characters-- starting 25 til 87
+				System.out.println("=============================================================="); 
+				System.out.println("=                 Welcome to Roomie Raspberry                =");  
+				System.out.println("=============================================================="); 
+				System.out.println("Choose what do you want do next                               ");  
+				System.out.println("1 - Register new user:                                        ");  
+				System.out.println("2 - Start Kaa                                                 ");  
+				 System.out.println("=============================================================="); 
+				System.out.println("Now Type your choice:"); 
+				Scanner user_input = new Scanner(System.in);
+				String userOption = user_input.next();
+				switch(userOption){
+					case "1":
+						System.out.println("Okay. Lets register a new user then!                          "); 
+						System.out.println("Insert the user name:                                         ");  
+						String userName = user_input.next();
+						System.out.println("Got that ;) Can you please inform me the email now:           ");  
+						String userEmail = user_input.next();
+						//System.out.println("Now can you inform your new brand password:           ");  
+						boolean pwdMatch = false;
+						while(!pwdMatch){
+							password = new String(console.readPassword("Now can you inform your new brand password:\n"));
+							String confirmation = new String(console.readPassword("Can you type again, so I can confirm?\n"));
+							if(password.equals(confirmation)){
+								pwdMatch=true;
+								break;
+							}
+							System.out.println("Both passwords don't match. Let's try again!");
 						}
-						//confirmationFlag = true;
+						u.setUserName(userName);
+						u.setEmail(userEmail);
+						u.setHashedPassword(Util.SHA256(password));
+						u.setRfidCode(" ");
+						kaaClientImpl.initKaa();	
+						//u.setRfidCode(tag);
+					 	u.setRfidCode("");
+					 	kaaClientImpl.sendCreateUserEvent(u);
+						ConfirmationECF confirmationECF = kaaClientImpl.eventFamilyFactory.getConfirmationECF();	
+						boolean confirmationFlag = false;
+						final CountDownLatch confirmationLatch = new CountDownLatch(1);
+						System.out.println("Confirmation Event Listener added");
+						confirmationECF.addListener( new ConfirmationECF.Listener(){
+					
+							@Override
+							public void onEvent(ConfirmationEvent event, String source)  {
+								System.out.println("Confirmation Event Received from RoomieWeb");
+								System.out.println(event.getEmail() +"  "+ u.getEmail());
+								if(u.getEmail().equals( event.getEmail())){
+									if(event.getIsRegistered())
+										System.out.println("Chill out your user was registered");
+									else
+										System.out.println("Oh, I think we got a problem with you registration." + event.getStatus());
+									confirmationLatch.countDown();
+								}
+								//confirmationFlag = true;
+						}
+						});
+						confirmationLatch.await();
+						kaaClientImpl.closeKaaConnection();
+						System.out.println("The user was added to Roomie environment!");
+						break;
+					default:
+						kaaClientImpl.initKaa();	
+						System.out.println("Kaa will be in reservation mode until you press enter");
+						while(System.in.available()==0){
+						}
+					 /*while(true){
+								System.out.println("Reading Tag");
+								System.out.println(rfidReader.readTag());
+				
+							}
+						*/	
 				}
-				});
-				confirmationLatch.await();
-				break;
-			default:
-				
-			 /*while(true){
-						System.out.println("Reading Tag");
-						System.out.println(rfidReader.readTag());
-				
-					}
-				*/	
-		}
 			
 		
-		
+			
+       	}
        }
 		       
 }

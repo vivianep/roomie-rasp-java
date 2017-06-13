@@ -12,6 +12,7 @@ import java.security.MessageDigest;
 import java.util.Scanner;
 import java.io.Console;
 import java.lang.System;
+import java.util.concurrent.TimeUnit;
 
 
 public class Util{
@@ -20,6 +21,16 @@ public class Util{
 			return (Date) new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").parse(time);
 	
 	
+		}
+		
+		public static void sleepForSeconds(int seconds){
+			try{
+				TimeUnit.SECONDS.sleep(seconds);
+			}catch(InterruptedException e){
+			
+			}
+		
+		
 		}
 
 		public static String SHA256(String base) {
